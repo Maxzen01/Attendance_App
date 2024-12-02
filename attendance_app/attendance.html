@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .camera-container {
+            display: none;
+            margin-top: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 300px;
+        }
+        #usernameContainer {
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Attendance</h1>
+
+    <button id="loginButton">Login</button>
+    <button id="logoutButton">Logout</button>
+
+    <div id="cameraContainer" class="camera-container">
+        <video id="video" autoplay></video>
+        <button id="captureButton">Take Photo</button>
+        <canvas id="canvas" style="display: none;"></canvas>
+    </div>
+
+    <div id="usernameContainer">
+        <input type="text" id="username" placeholder="Enter your username" required>
+        <button id="submitButton">Submit</button>
+    </div>
+
+    <script>
+        const loginButton = document.getElementById("loginButton");
+        const logoutButton = document.getElementById("logoutButton");
+        const cameraContainer = document.getElementById("cameraContainer");
+        const video = document.getElementById("video");
+        const captureButton = document.getElementById("captureButton");
+        const canvas = document.getElementById("canvas");
+        const usernameContainer = document.getElementById("usernameContainer");
+        const submitButton = document.getElementById("submitButton");
+        const usernameInput = document.getElementById("username");
+
+        let stream;
+
+        // Start camera when Login button is clicked
+        loginButton.addEventListener("click", () => {
+            startCamera('login');
+        });
+
+        // Stop camera when Logout button is clicked
+        logoutButton.addEventListener("click", () => {
+            startCamera('logout');
+        });
+
+        // Capture photo when Capture button is clicked
+        captureButton.addEventListener("click", () => {
+            captureImage();
+        });
+
+        // Submit attendance when Submit button is clicked
+        submitButton.addEventListener("click", () => {
+            const username = usernameInput.value;
+            if (username) {
+                const action = loginButton.style.display === "none" ? "login" : "logout";
+                uploadImage(username, action);
+            } else {
+                alert("Please enter a username.");
+            }
+        });
+
+        // Start the camera and show the video feed
+        function startCamera(action) {
+            cameraContainer.style.display = "block";
+            usernameContainer.style.display = "none";
+            loginButton.style.display = action === 'login' ? "none" : "block";
+            logoutButton.style.display = action === 'logout' ? "none" : "block";
+
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then((streamObj) => {
+                    stream = streamObj;
+                    video.srcObject = stream;
+                    captureButton.style.display = "block"; // Show capture button
+                })
+                .catch((err) => {
+                    console.error("Error accessing camera: ", err);
+                });
+        }
+
+        // Capture the image from the video feed
+        function captureImage() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL("image/jpeg");
+            captureButton.style.display = "none"; // Hide capture button
+            usernameContainer.style.display = "block"; // Show username input
+            window.dataURL = dataURL; // Store the captured image data URL
+        }
+
+        // Upload image to the server
+        function uploadImage(username, action) {
+            const dataURL = window.dataURL;
+            if (!dataURL) {
+                alert("Please capture an image first.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("image", dataURL);
+            formData.append("username", username);
+            formData.append("action", action); // Send action (login or logout)
+
+            fetch('upload.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                resetForm();
+            })
+            .catch(error => {
+                console.error("Error uploading image: ", error);
+            });
+        }
+
+        // Reset the form after submission
+        function resetForm() {
+            usernameInput.value = '';
+            usernameContainer.style.display = "none";
+            cameraContainer.style.display = "none";
+            loginButton.style.display = "block";
+            logoutButton.style.display = "block";
+        }
+    </script>
+</body>
+</html>
